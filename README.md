@@ -97,29 +97,39 @@ Please note that root access is required.
 
 # Usage
 ```
- oneshot.py <arguments>
- Required arguments:
-     -i, --interface=<wlan0>  : Name of the interface to use
+ usage: oneshot.py [-h] -i INTERFACE [-b BSSID] [-p PIN] [-K] [-F] [-X] [-A] [-B] [--pbc] [-d DELAY] [-w] [--iface-down]
+                  [--vuln-list VULN_LIST] [-l] [-r] [--mtk-wifi] [-v]
 
- Optional arguments:
-     -b, --bssid=<mac>        : BSSID of the target AP
-     -p, --pin=<wps pin>      : Use the specified pin (arbitrary string or 4/8 digit pin)
-     -K, --pixie-dust         : Run Pixie Dust attack
-     -B, --bruteforce         : Run online bruteforce attack
-     --push-button-connect    : Run WPS push button connection
+OneShotPin 0.0.2 (c) 2017 rofl0r, modded by drygdryg
 
- Advanced arguments:
-     -d, --delay=<n>          : Set the delay between pin attempts [0]
-     -w, --write              : Write AP credentials to the file on success
-     -F, --pixie-force        : Run Pixiewps with --force option (bruteforce full range)
-     -X, --show-pixie-cmd     : Alway print Pixiewps command
-     --vuln-list=<filename>   : Use custom file with vulnerable devices list ['vulnwsc.txt']
-     --iface-down             : Down network interface when the work is finished
-     -l, --loop               : Run in a loop
-     -r, --reverse-scan       : Reverse order of networks in the list of networks. Useful on small displays
-     --mtk-wifi               : Activate MediaTek Wi-Fi interface driver on startup and deactivate it on exit
-                                (for internal Wi-Fi adapters implemented in MediaTek SoCs). Turn off Wi-Fi in the system settings before using this.
-     -v, --verbose            : Verbose output
+options:
+  -h, --help            show this help message and exit
+  -i INTERFACE, --interface INTERFACE
+                        Name of the interface to use
+  -b BSSID, --bssid BSSID
+                        BSSID of the target AP
+  -p PIN, --pin PIN     Use the specified pin (arbitrary string or 4/8 digit pin)
+  -K, --pixie-dust      Run Pixie Dust attack
+  -F, --pixie-force     Run Pixiewps with --force option (bruteforce full range)
+  -X, --show-pixie-cmd  Always print Pixiewps command
+  -A, --auto            Autopwn all the networks
+  -B, --bruteforce      Run online bruteforce attack
+  --pbc, --push-button-connect
+                        Run WPS push button connection
+  -d DELAY, --delay DELAY
+                        Set the delay between pin attempts
+  -w, --write           Write credentials to the file on success
+  --iface-down          Down network interface when the work is finished
+  --vuln-list VULN_LIST
+                        Use custom file with vulnerable devices list
+  -l, --loop            Run in a loop
+  -r, --reverse-scan    Reverse order of networks in the list of networks. Useful on small displays
+  --mtk-wifi            Activate MediaTek Wi-Fi interface driver on startup and deactivate it on exit (for internal Wi-Fi
+                        adapters implemented in MediaTek SoCs). Turn off Wi-Fi in the system settings before using this.
+  -v, --verbose         Verbose output
+
+Example: oneshot.py -i wlan0 -b 00:90:4C:C1:AC:21 -K
+
  ```
 
 ## Usage examples
