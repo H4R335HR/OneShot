@@ -6,6 +6,7 @@
  - integrated [3WiFi offline WPS PIN generator](https://3wifi.stascorp.com/wpspin);
  - [online WPS bruteforce](https://sviehb.files.wordpress.com/2011/12/viehboeck_wps.pdf);
  - Wi-Fi scanner with highlighting based on iw;
+ - Auto Mode to select networks and perform attacks automatically
 # Requirements
  - Python 3.6 and above;
  - [Wpa supplicant](https://www.w1.fi/wpa_supplicant/);
