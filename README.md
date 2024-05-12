@@ -133,6 +133,10 @@ Example: oneshot.py -i wlan0 -b 00:90:4C:C1:AC:21 -K
  ```
 
 ## Usage examples
+Start oneshot in auto mode:
+ ```
+ sudo python3 oneshot.py -i wlan0 -A
+ ```
 Start Pixie Dust attack on a specified BSSID:
  ```
  sudo python3 oneshot.py -i wlan0 -b 00:90:4C:C1:AC:21 -K
