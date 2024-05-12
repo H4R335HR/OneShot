@@ -1082,7 +1082,7 @@ def usage():
         -b, --bssid=<mac>        : BSSID of the target AP
         -p, --pin=<wps pin>      : Use the specified pin (arbitrary string or 4/8 digit pin)
         -K, --pixie-dust         : Run Pixie Dust attack
-        -A, --auto               : Try autopwn
+        -A, --auto               : Autopwn all networks
         -B, --bruteforce         : Run online bruteforce attack
         --push-button-connect    : Run WPS push button connection
 
@@ -1146,7 +1146,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-A', '--auto',
         action='store_true',
-        help='Autopwn'
+        help='Autopwn all networks'
         )
     parser.add_argument(
         '-B', '--bruteforce',
