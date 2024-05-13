@@ -20,7 +20,6 @@ from typing import Dict
 #Auto Mode Hack: Global variable wasted_bssids
 wasted_bssids = []
 
-
 class NetworkAddress:
     def __init__(self, mac):
         if isinstance(mac, int):
@@ -544,6 +543,7 @@ class Companion:
             if 'SSID' in line:
                 self.connection_status.essid = codecs.decode("'".join(line.split("'")[1:-1]), 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
             print('[*] Authenticating…')
+            self.times-= 1
         elif 'Authentication response' in line:
             print('[+] Authenticated')
         elif 'Trying to associate with' in line:
@@ -650,6 +650,7 @@ class Companion:
     def __wps_connection(self, bssid=None, pin=None, pixiemode=False, pbc_mode=False, verbose=None):
         if not verbose:
             verbose = self.print_debug
+        self.times = 5
         self.pixie_creds.clear()
         self.connection_status.clear()
         self.wpas.stdout.read(300)   # Clean the pipe
@@ -671,6 +672,8 @@ class Companion:
 
         while True:
             res = self.__handle_wpas(pixiemode=pixiemode, pbc_mode=pbc_mode, verbose=verbose)
+            if not self.times:
+                break
             if not res:
                 break
             if self.connection_status.status == 'WSC_NACK':
@@ -1082,7 +1085,7 @@ def usage():
         -b, --bssid=<mac>        : BSSID of the target AP
         -p, --pin=<wps pin>      : Use the specified pin (arbitrary string or 4/8 digit pin)
         -K, --pixie-dust         : Run Pixie Dust attack
-        -A, --auto               : Autopwn all networks
+        -A, --auto               : Attempt to Autopwn all the bssids
         -B, --bruteforce         : Run online bruteforce attack
         --push-button-connect    : Run WPS push button connection
 
@@ -1146,7 +1149,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-A', '--auto',
         action='store_true',
-        help='Autopwn all networks'
+        help='Attempt to Autopwn all the bssids'
         )
     parser.add_argument(
         '-B', '--bruteforce',
