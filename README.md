@@ -98,10 +98,10 @@ Please note that root access is required.
 
 # Usage
 ```
- usage: oneshot.py [-h] -i INTERFACE [-b BSSID] [-p PIN] [-K] [-F] [-X] [-A] [-B] [--pbc] [-d DELAY] [-w] [--iface-down]
-                  [--vuln-list VULN_LIST] [-l] [-r] [--mtk-wifi] [-v]
+ usage: oneshot.py [-h] -i INTERFACE [-b BSSID] [-s SSID] [-p PIN] [-K] [-F] [-X] [-A] [-P PIN_INDEX] [-B] [--pbc] [-d DELAY]
+                  [-w] [--iface-down] [--vuln-list VULN_LIST] [-l] [-r] [--mtk-wifi] [-v]
 
-OneShotPin 0.0.2 (c) 2017 rofl0r, modded by drygdryg
+OneShotPin 0.0.2 (c) 2017 rofl0r, drygdryg and fulvius31
 
 options:
   -h, --help            show this help message and exit
@@ -109,11 +109,14 @@ options:
                         Name of the interface to use
   -b BSSID, --bssid BSSID
                         BSSID of the target AP
+  -s SSID, --ssid SSID  SSID of the target AP
   -p PIN, --pin PIN     Use the specified pin (arbitrary string or 4/8 digit pin)
   -K, --pixie-dust      Run Pixie Dust attack
   -F, --pixie-force     Run Pixiewps with --force option (bruteforce full range)
   -X, --show-pixie-cmd  Always print Pixiewps command
-  -A, --auto            Autopwn all the networks
+  -A, --auto            Attempt to Autopwn all the bssids
+  -P PIN_INDEX, --pin-index PIN_INDEX
+                        Select from index of automatically generated pins
   -B, --bruteforce      Run online bruteforce attack
   --pbc, --push-button-connect
                         Run WPS push button connection
@@ -128,8 +131,6 @@ options:
   --mtk-wifi            Activate MediaTek Wi-Fi interface driver on startup and deactivate it on exit (for internal Wi-Fi
                         adapters implemented in MediaTek SoCs). Turn off Wi-Fi in the system settings before using this.
   -v, --verbose         Verbose output
-
-Example: oneshot.py -i wlan0 -b 00:90:4C:C1:AC:21 -K
 
  ```
 
