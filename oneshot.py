@@ -673,7 +673,7 @@ class Companion:
     def __wps_connection(self, bssid=None, pin=None, pixiemode=False, pbc_mode=False, verbose=None):
         if not verbose:
             verbose = self.print_debug        
-        self.times = args.times
+        self.times = args.times if args.times is not None else 3
         self.pixie_creds.clear()
         self.connection_status.clear()
         self.wpas.stdout.read(300)   # Clean the pipe
