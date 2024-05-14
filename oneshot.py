@@ -673,7 +673,7 @@ class Companion:
     def __wps_connection(self, bssid=None, pin=None, pixiemode=False, pbc_mode=False, verbose=None):
         if not verbose:
             verbose = self.print_debug        
-        self.times = 5
+        self.times = args.times
         self.pixie_creds.clear()
         self.connection_status.clear()
         self.wpas.stdout.read(300)   # Clean the pipe
@@ -1082,6 +1082,14 @@ class WiFiScanner:
                     return networks[int(self.auto_num)]['BSSID']
                 else:
                     return networks[int(self.auto_num)]['BSSID'], networks[int(self.auto_num)]['ESSID']
+            if args.auto and self.auto_num is None:
+                if not args.delay:
+                    delay = 30
+                else:
+                    delay = args.delay
+                print('[i] Waiting for ', delay, 'seconds before refreshing...')
+                time.sleep(delay)
+                return self.prompt_network()
             try:
                 networkNo = input('Select target (press Enter to refresh): ')
                 if networkNo.lower() in ('r', '0', ''):
@@ -1135,6 +1143,7 @@ def usage():
 
     Advanced arguments:
         -d, --delay=<n>          : Set the delay between pin attempts [0]
+        -t, --times=<n>          : Number of times to try a weak signalled AP before moving on
         -w, --write              : Write AP credentials to the file on success
         -F, --pixie-force        : Run Pixiewps with --force option (bruteforce full range)
         -P, --pin-index          : Select from index of automatically generated pins
@@ -1220,6 +1229,11 @@ if __name__ == '__main__':
         '-d', '--delay',
         type=float,
         help='Set the delay between pin attempts'
+        )
+    parser.add_argument(
+        '-t', '--times',
+        type=int,
+        help='Number of times to try a weak signalled AP before moving on'
         )
     parser.add_argument(
         '-w', '--write',
