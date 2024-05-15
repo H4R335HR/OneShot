@@ -1076,12 +1076,14 @@ class WiFiScanner:
                 deviceName, model
                 )
             if not network['WPS locked'] and network['BSSID'] in locked_bssids:
+                print('Removing from locked bssids')
                 locked_bssids.remove(network['BSSID'])
             if (network['BSSID'], network['ESSID']) in self.stored:
                 print(colored(line, color='yellow')) 
             elif network['WPS locked']:
                 print(colored(line, color='red'))
-                locked_bssids.append(network['BSSID'])
+                if network['BSSID'] not in locked_bssids:
+                    locked_bssids.append(network['BSSID'])
             elif (network['BSSID']) in wasted_bssids:
                 print(colored(line, color='grey'))   
             elif ((self.vuln_list and (model in self.vuln_list))
@@ -1089,11 +1091,11 @@ class WiFiScanner:
                                                               'pins.csv'), network['BSSID'])):
                 print(colored(line, color='green'))
                 if self.auto_num is None:
-                    self.auto_num = n
+                    self.auto_num = 1
             else:
                 print(line)
                 if self.auto_num is None:
-                    self.auto_num = n
+                    self.auto_num = 1
 
         return network_list
 
