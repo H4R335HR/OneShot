@@ -716,7 +716,7 @@ class Companion:
             if not res:
                 break
             if self.connection_status.status == 'WSC_NACK':
-                if args.auto:
+                if args.auto and not args.bruteforce:
                     print ('[i] Adding to Wasted pins:', bssid) 
                     if bssid not in wasted_bssids:
                         wasted_bssids[bssid] = args.pin_index
@@ -842,6 +842,7 @@ class Companion:
                 filename = self.sessions_dir + '{}.run'.format(bssid.replace(':', '').upper())
                 with open(filename, 'r') as file:
                     if args.auto:
+                        print('Restoring previous session for {} ...'.format(bssid))
                         mask = file.readline().strip()
                     elif input('[?] Restore previous session for {}? [n/Y] '.format(bssid)).lower() != 'n':
                         mask = file.readline().strip()
