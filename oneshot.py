@@ -765,7 +765,8 @@ class Companion:
             self.__wps_connection(bssid, pin, pixiemode)
 
         if self.connection_status.status == 'GOT_PSK':
-            del wasted_bssids[bssid]
+            if bssid in wasted_bssids:
+                del wasted_bssids[bssid]
             self.__credentialPrint(pin, self.connection_status.wpa_psk, self.connection_status.essid)
             if self.save_result:
                 self.__saveResult(bssid, self.connection_status.essid, pin, self.connection_status.wpa_psk)
