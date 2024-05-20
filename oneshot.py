@@ -807,6 +807,9 @@ class Companion:
                 return f_half
             elif self.connection_status.status == 'WPS_FAIL':
                 print('[!] WPS transaction failed, re-trying last pin - WPS Locked?')
+                if args.auto and not delay:
+                    print('[i] Waiting for 60 seconds..')
+                    time.sleep(60)
                 return self.__first_half_bruteforce(bssid, f_half)
             f_half = str(int(f_half) + 1).zfill(4)
             self.bruteforce.registerAttempt(f_half)
@@ -829,6 +832,9 @@ class Companion:
                 return pin
             elif self.connection_status.status == 'WPS_FAIL':
                 print('[!] WPS transaction failed, re-trying last pin - WPS Locked?')
+                if args.auto and not delay:
+                    print('[i] Waiting for 60 seconds..')
+                    time.sleep(60)
                 return self.__second_half_bruteforce(bssid, f_half, s_half)
             s_half = str(int(s_half) + 1).zfill(3)
             self.bruteforce.registerAttempt(f_half + s_half)
@@ -876,9 +882,17 @@ class Companion:
                 raise KeyboardInterrupt
 
     def cleanup(self):
-        self.retsock.close()
+        try:
+            if hasattr(self, 'retsock') and self.retsock:
+                self.retsock.close()
+        except Exception as e:
+            print(f"Exception during socket close: {e}")
         self.wpas.terminate()
-        os.remove(self.res_socket_file)
+        try:
+            if os.path.exists(self.res_socket_file):
+                os.remove(self.res_socket_file)
+        except Exception as e:
+            print(f"Exception during socket file removal: {e}")
         shutil.rmtree(self.tempdir, ignore_errors=True)
         os.remove(self.tempconf)
 
@@ -919,6 +933,7 @@ class WiFiScanner:
     def iw_scanner(self) -> Dict[int, dict]:
         """Parsing iw scan results"""
         self.auto_num = None
+        self.present = {}
         def handle_network(line, result, networks):
             networks.append(
                     {
@@ -1086,7 +1101,8 @@ class WiFiScanner:
                 if network['BSSID'] not in locked_bssids:
                     locked_bssids.append(network['BSSID'])
             elif (network['BSSID']) in wasted_bssids:
-                print(colored(line, color='grey'))   
+                print(colored(line, color='grey'))  
+                self.present[network['BSSID']] = True 
             elif ((self.vuln_list and (model in self.vuln_list))
                   or self.checkvuln_from_pin_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                               'pins.csv'), network['BSSID'])):
@@ -1121,7 +1137,7 @@ class WiFiScanner:
                             else:
                                 return network['BSSID'], essid
                     return None  # Return None if the BSSID is not found
-                for bssid in wasted_bssids:
+                for bssid in wasted_bssids and bssid in self.present:
                     if bssid not in locked_bssids:
                         essid = get_essid_for_bssid(networks, bssid)
                         return bssid, essid
