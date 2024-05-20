@@ -1137,8 +1137,8 @@ class WiFiScanner:
                             else:
                                 return network['BSSID'], essid
                     return None  # Return None if the BSSID is not found
-                for bssid in wasted_bssids and bssid in self.present:
-                    if bssid not in locked_bssids:
+                for bssid in wasted_bssids:
+                    if bssid not in locked_bssids and bssid in self.present:
                         essid = get_essid_for_bssid(networks, bssid)
                         return bssid, essid
                 if not args.delay:
